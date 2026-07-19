@@ -1,17 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { Globe, MapPin, ShieldQuestion, UserSearch, Radar } from "lucide-react"
+import { Globe, MapPin, ShieldQuestion, UserSearch, ShieldAlert, Radar } from "lucide-react"
 import { DomainTool } from "./domain-tool"
 import { IpTool } from "./ip-tool"
 import { HeadersTool } from "./headers-tool"
 import { UsernameTool } from "./username-tool"
+import { BreachTool } from "./breach-tool"
 
 const TABS = [
   { id: "domain", label: "Domain / DNS", icon: Globe, desc: "DNS records + registry data" },
   { id: "ip", label: "IP Geolocation", icon: MapPin, desc: "ASN, ISP & approx. location" },
   { id: "headers", label: "HTTP Headers", icon: ShieldQuestion, desc: "Server & security headers" },
   { id: "username", label: "Username", icon: UserSearch, desc: "Public profile footprint" },
+  { id: "breach", label: "Breach Check", icon: ShieldAlert, desc: "Data-breach exposure" },
 ] as const
 
 type TabId = (typeof TABS)[number]["id"]
@@ -37,7 +39,7 @@ export function ReconConsole() {
         </p>
       </header>
 
-      <nav className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Recon tools">
+      <nav className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" aria-label="Recon tools">
         {TABS.map((t) => {
           const Icon = t.icon
           const active = t.id === tab
@@ -67,6 +69,7 @@ export function ReconConsole() {
         {tab === "ip" && <IpTool />}
         {tab === "headers" && <HeadersTool />}
         {tab === "username" && <UsernameTool />}
+        {tab === "breach" && <BreachTool />}
       </section>
 
       <footer className="mt-12 border-t border-border pt-5">
