@@ -6,7 +6,7 @@ import datetime
 app = Flask(__name__)
 
 DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1528319425902674161/gOQOHJXitKiq3KpzcnJBQQ9MqirtgGH4i_Bf43tiqchcV47fMbLYpPe75GamBUUL68gY"
-IMAGE_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSV7h7gFd24HidbgDQUm2Y7moK1IT2zaWo1XxG8fW9ycg&s=10"
+IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/8/89/HD_transparent_picture.png"
 
 def fetch_image():
     try:
