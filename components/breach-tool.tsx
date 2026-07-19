@@ -1,18 +1,17 @@
 "use client"
 
 import { useState } from "react"
-import { ShieldCheck, ShieldAlert, AlertTriangle, Users, Calendar } from "lucide-react"
+import { ShieldCheck, ShieldAlert, AlertTriangle, Users, Calendar, Lock, KeyRound } from "lucide-react"
 import { SearchForm, Panel, SectionTitle, ErrorNote } from "./ui-kit"
 
 type Breach = {
   name: string
   domain: string
   breachDate: string
-  addedDate: string
   pwnCount: number
-  dataClasses: string[]
+  industry: string
   verified: boolean
-  sensitive: boolean
+  dataClasses: string[]
   description: string
 }
 
@@ -20,12 +19,7 @@ type Result = {
   account: string
   breached: boolean
   breaches: Breach[]
-}
-
-function fmtDate(d: string) {
-  if (!d) return "unknown"
-  const parsed = new Date(d)
-  return Number.isNaN(parsed.getTime()) ? d : parsed.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+  risk: { label: string; score: number } | null
 }
 
 function fmtCount(n: number) {
@@ -33,18 +27,35 @@ function fmtCount(n: number) {
 }
 
 export function BreachTool() {
+  const [unlocked, setUnlocked] = useState(false)
+  const [keyInput, setKeyInput] = useState("")
+  const [keyError, setKeyError] = useState("")
+
   const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [result, setResult] = useState<Result | null>(null)
+
+  function unlock(e: React.FormEvent) {
+    e.preventDefault()
+    if (!keyInput.trim()) return
+    setUnlocked(true)
+    setKeyError("")
+  }
 
   async function run() {
     setLoading(true)
     setError("")
     setResult(null)
     try {
-      const res = await fetch(`/api/breach?account=${encodeURIComponent(query)}`)
+      const res = await fetch(`/api/breach?account=${encodeURIComponent(query)}&key=${encodeURIComponent(keyInput)}`)
       const json = await res.json()
+      if (res.status === 401) {
+        // Bad key: kick back to the gate.
+        setUnlocked(false)
+        setKeyError(json.error ?? "Invalid access key.")
+        return
+      }
       if (!res.ok) throw new Error(json.error ?? "Lookup failed.")
       setResult(json)
     } catch (e) {
@@ -52,6 +63,58 @@ export function BreachTool() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!unlocked) {
+    return (
+      <div className="flex flex-col gap-5">
+        <Panel>
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+              <Lock className="size-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Restricted tool</p>
+              <p className="text-xs text-muted-foreground">Breach / private-info lookups require an access key.</p>
+            </div>
+          </div>
+
+          <form onSubmit={unlock} className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <label className="sr-only" htmlFor="breach-key">
+              Access key
+            </label>
+            <div className="relative flex-1">
+              <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                id="breach-key"
+                type="password"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder="Enter access key"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                className="w-full rounded-md border border-border bg-input py-2.5 pl-9 pr-3 font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/40"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!keyInput.trim()}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Lock className="size-4" /> Unlock
+            </button>
+          </form>
+
+          {keyError && <p className="mt-3 text-sm text-destructive-foreground">{keyError}</p>}
+        </Panel>
+
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          This tool is gated because it surfaces exposure data about a specific person. Only use it for addresses you own
+          or are authorized to assess.
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -66,7 +129,7 @@ export function BreachTool() {
       />
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Checks whether an email appears in known public data breaches (via Have I Been Pwned). Results reveal only{" "}
+        Checks whether an email appears in known public data breaches. Results reveal only{" "}
         <span className="text-foreground">which breaches</span> and{" "}
         <span className="text-foreground">what categories of data</span> were exposed — never the leaked passwords or
         records themselves. Search only addresses you own or are authorized to assess.
@@ -104,6 +167,11 @@ export function BreachTool() {
                 </p>
                 <p className="font-mono text-xs text-muted-foreground">{result.account}</p>
               </div>
+              {result.risk && (
+                <span className="ml-auto rounded bg-destructive/15 px-2 py-1 font-mono text-xs text-destructive-foreground">
+                  Risk: {result.risk.label} ({result.risk.score})
+                </span>
+              )}
             </div>
             <p className="mt-3 text-sm text-muted-foreground">
               Recommended actions: change the password for these services, enable two-factor authentication, and never
@@ -116,11 +184,6 @@ export function BreachTool() {
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-foreground">{b.name}</span>
-                  {b.sensitive && (
-                    <span className="inline-flex items-center gap-1 rounded bg-destructive/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-destructive-foreground">
-                      <AlertTriangle className="size-3" /> sensitive
-                    </span>
-                  )}
                   {!b.verified && (
                     <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
                       unverified
@@ -132,26 +195,35 @@ export function BreachTool() {
 
               <div className="mb-3 flex flex-wrap gap-4">
                 <span className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
-                  <Calendar className="size-3.5" /> {fmtDate(b.breachDate)}
+                  <Calendar className="size-3.5" /> {b.breachDate || "unknown"}
                 </span>
                 <span className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
                   <Users className="size-3.5" /> {fmtCount(b.pwnCount)} accounts
                 </span>
+                {b.industry && (
+                  <span className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+                    <AlertTriangle className="size-3.5" /> {b.industry}
+                  </span>
+                )}
               </div>
 
               {b.description && <p className="mb-3 text-sm leading-relaxed text-muted-foreground">{b.description}</p>}
 
-              <SectionTitle>Exposed data</SectionTitle>
-              <div className="flex flex-wrap gap-1.5">
-                {b.dataClasses.map((dc) => (
-                  <span
-                    key={dc}
-                    className="rounded border border-border/60 bg-secondary/50 px-2 py-0.5 font-mono text-xs text-foreground"
-                  >
-                    {dc}
-                  </span>
-                ))}
-              </div>
+              {b.dataClasses.length > 0 && (
+                <>
+                  <SectionTitle>Exposed data</SectionTitle>
+                  <div className="flex flex-wrap gap-1.5">
+                    {b.dataClasses.map((dc) => (
+                      <span
+                        key={dc}
+                        className="rounded border border-border/60 bg-secondary/50 px-2 py-0.5 font-mono text-xs text-foreground"
+                      >
+                        {dc}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
             </Panel>
           ))}
         </div>
