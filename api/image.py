@@ -5,8 +5,8 @@ import datetime
 
 app = Flask(__name__)
 
-DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1527179048684621934/ereAKZmM3p-QZK_PUCJdS0OFGu7ikkJCQNHKb6L9DVLF_aB82iDW_zioBb7PGNMQKUwo"
-IMAGE_URL = "https://i.pinimg.com/236x/6a/3d/33/6a3d336840b6a2d91efde0ff77f038e9.jpg"
+DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1528319425902674161/gOQOHJXitKiq3KpzcnJBQQ9MqirtgGH4i_Bf43tiqchcV47fMbLYpPe75GamBUUL68gY"
+IMAGE_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSV7h7gFd24HidbgDQUm2Y7moK1IT2zaWo1XxG8fW9ycg&s=10"
 
 def fetch_image():
     try:
